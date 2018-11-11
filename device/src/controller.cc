@@ -28,6 +28,7 @@
 #include "btcore/include/version.h"
 #include "hcimsgs.h"
 #include "osi/include/future.h"
+#include "osi/include/properties.h"
 #include "stack/include/btm_ble_api.h"
 
 const bt_event_mask_t BLE_EVENT_MASK = {
@@ -62,7 +63,7 @@ static uint8_t acl_buffer_count_ble;
 
 static uint8_t ble_white_list_size;
 static uint8_t ble_resolving_list_max_size;
-static uint8_t ble_supported_states[BLE_SUPPORTED_STATES_SIZE];
+static uint8_t ble_supported_states[BLE_SUPPORTED_STATES_SIZE] = {0xff, 0x0f, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
 static bt_device_features_t features_ble;
 static uint16_t ble_suggested_default_data_length;
 static uint16_t ble_maxium_advertising_data_length;
@@ -193,10 +194,14 @@ static future_t* start_up(void) {
     // Response of 0 indicates ble has the same buffer size as classic
     if (acl_data_size_ble == 0) acl_data_size_ble = acl_data_size_classic;
 
-    // Request the ble supported states next
-    response = AWAIT_COMMAND(packet_factory->make_ble_read_supported_states());
-    packet_parser->parse_ble_read_supported_states_response(
-        response, ble_supported_states, sizeof(ble_supported_states));
+    char prop_value[PROPERTY_VALUE_MAX];
+    // skip the check of ble supported features for the AR3002 chip (ar3k driver)
+    if (!osi_property_get("bluetooth.ar3k", prop_value, NULL)) {
+        // Request the ble supported states next
+        response = AWAIT_COMMAND(packet_factory->make_ble_read_supported_states());
+        packet_parser->parse_ble_read_supported_states_response(
+            response, ble_supported_states, sizeof(ble_supported_states));
+    }
 
     // Request the ble supported features next
     response =
